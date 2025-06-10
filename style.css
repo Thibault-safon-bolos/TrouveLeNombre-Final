@@ -1,0 +1,8 @@
+*{
+    background-color: rgb(56, 1, 73);
+    color: rgb(255, 255, 255);
+}
+
+#hidden{
+    opacity: 0;
+}
