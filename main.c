@@ -4,22 +4,45 @@
 #include <time.h>
 #include <string.h>
 #include <gtk/gtk.h>
+#include <windows.h>
+#include <mmsystem.h>
+
+#pragma comment(lib, "winmm.lib")  // Nécessaire pour linker winmm.lib
 
 GtkStyleContext *context;
 GtkCssProvider *provider;
 GtkWidget *window;
 GdkScreen *screen;
-GtkWidget *grid;
+GtkWidget *overlay;
+GtkWidget *fixed;
 GtkWidget *play;
 GtkWidget *label;
 GtkWidget *button;
 GtkWidget *Champs;
+GtkWidget *buttonmore1;
+GtkWidget *buttonmore5;
+GtkWidget *buttonless1;
+GtkWidget *buttonless5;
+GtkStyleContext *context;
+
 int tentnb = 1;
 int rnb = 10;
 int nbr;
 gboolean game_started = FALSE;
 
+void jouer_son_depuis_exe(const char *fichier) {
+    char chemin_exe[MAX_PATH];
+    GetModuleFileNameA(NULL, chemin_exe, MAX_PATH);
 
+    // Trouver le dossier
+    char *dernier_slash = strrchr(chemin_exe, '\\');
+    if (dernier_slash) *(dernier_slash + 1) = '\0'; // garde le chemin du dossier
+
+    // Concatène le chemin complet
+    strcat(chemin_exe, fichier);
+
+    PlaySound(chemin_exe, NULL, SND_FILENAME | SND_ASYNC);
+}
 
 void CompaNb(int nbp, int nbb){
     char buf[100000];
@@ -41,6 +64,7 @@ void CompaNb(int nbp, int nbb){
     {
         snprintf(buf, sizeof(buf), "Resultat: Gagné le nombre était %d tu la trouver en %d tentative%s.\nEntrez une borne max, puis cliquez sur Replay.", nbb, tentnb, tentnb > 1 ? "s" : "");
         gtk_label_set_text(GTK_LABEL(label), buf);
+        jouer_son_depuis_exe("sons/victoire.wav");
         game_started = FALSE;
         gtk_button_set_label(GTK_BUTTON(play), "Replay");
         gtk_entry_set_text(GTK_ENTRY(Champs), "");
@@ -49,9 +73,25 @@ void CompaNb(int nbp, int nbb){
     }
 }
 
+void buttonaddorless(GtkWidget *widget, gpointer data){
+    const gchar *text = gtk_entry_get_text(GTK_ENTRY(Champs));
+    int nombre = atoi(text); 
+    char nouveau_texte[16];
+    if (widget == buttonmore1)
+        nombre += 1;
+    else if (widget == buttonmore5)
+        nombre += 5;
+    else if (widget == buttonless1)
+        nombre -= 1;
+    else if (widget == buttonless5)
+        nombre -= 5;
+    snprintf(nouveau_texte, sizeof(nouveau_texte), "%d", nombre);
+    gtk_entry_set_text(GTK_ENTRY(Champs), nouveau_texte);
+}
 
 
 void ChoixBot(GtkWidget *widget, gpointer data){
+    jouer_son_depuis_exe("sons/let's_go.wav");
     char buffer[50];
     sprintf(buffer, "Choisissez un nombre entre 0 et %d.", rnb);
     gtk_label_set_text(GTK_LABEL(label), buffer);
@@ -134,22 +174,58 @@ int main(int argc, char *argv[]){
     //Application du CSS
     gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-    //Creation d'une grille
-    grid = gtk_grid_new();
-    gtk_container_add(GTK_CONTAINER(window), grid);
+    overlay = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(window), overlay);
+
+    fixed = gtk_fixed_new();
+    gtk_container_add(GTK_CONTAINER(overlay), fixed);
+    
     label = gtk_label_new("Bienvenue ! Entrez une borne max, puis cliquez sur Play.");
-    gtk_grid_attach(GTK_GRID(grid), label, 0, 0, 2, 1); // Col 0, Ligne 0, sur 2 hauteur et 1 largeurs
+    gtk_fixed_put(GTK_FIXED(fixed), label, 20, 20);  // X, Y à ajuster
 
     Champs = gtk_entry_new();  // Création du champ de saisie
+    gtk_entry_set_placeholder_text(GTK_ENTRY(Champs), "Entrez une borne max, puis cliquez sur Play.");
+    gtk_widget_set_size_request(Champs, 350, -1);
+    gtk_fixed_put(GTK_FIXED(fixed), Champs, 20, 60);  // Position X, Y à ajuster
 
-    gtk_grid_attach(GTK_GRID(grid), Champs, 0, 1, 1, 2);  // Ajout à la grille   
+    buttonless5 = gtk_button_new_with_label("-5");
+    gtk_fixed_put(GTK_FIXED(fixed), buttonless5, 20, 100);
+
+    buttonless1 = gtk_button_new_with_label("-1");
+    gtk_fixed_put(GTK_FIXED(fixed), buttonless1, 110, 100);
+
+    buttonmore1 = gtk_button_new_with_label("+1");
+    gtk_fixed_put(GTK_FIXED(fixed), buttonmore1, 200, 100);
+
+    buttonmore5 = gtk_button_new_with_label("+5");
+    gtk_fixed_put(GTK_FIXED(fixed), buttonmore5, 290, 100);
+
+    g_signal_connect(buttonmore1, "clicked", G_CALLBACK(buttonaddorless), NULL);
+    g_signal_connect(buttonmore5, "clicked", G_CALLBACK(buttonaddorless), NULL);
+    g_signal_connect(buttonless1, "clicked", G_CALLBACK(buttonaddorless), NULL);
+    g_signal_connect(buttonless5, "clicked", G_CALLBACK(buttonaddorless), NULL);
+
+
+
+    context = gtk_widget_get_style_context(buttonless5);
+    gtk_style_context_add_class(context, "small-button");
+
+    context = gtk_widget_get_style_context(buttonless1);
+    gtk_style_context_add_class(context, "small-button");
+
+    context = gtk_widget_get_style_context(buttonmore1);
+    gtk_style_context_add_class(context, "small-button");
+
+    context = gtk_widget_get_style_context(buttonmore5);
+    gtk_style_context_add_class(context, "small-button");
+
     
     button = gtk_button_new_with_label("Confirmation");
-    gtk_grid_attach(GTK_GRID(grid), button, 2, 1, 2,2);   
+    gtk_fixed_put(GTK_FIXED(fixed), button, 400, 60);
     g_signal_connect(G_OBJECT(button), "clicked", G_CALLBACK(VerifNb),NULL);
 
     play = gtk_button_new_with_label("Play");
-    gtk_grid_attach(GTK_GRID(grid), play, 2, 4, 3, 1);    
+    gtk_fixed_put(GTK_FIXED(fixed), play, 400, 100);
     g_signal_connect(G_OBJECT(play), "clicked", G_CALLBACK(ChoixBot), NULL);
 
     //Montre les elements
